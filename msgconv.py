@@ -10,10 +10,6 @@ import codecs
 import re
 
 import sys
-import imp
-
-imp.reload(sys)
-sys.setdefaultencoding("utf-8")
 
 from langconv import *
 #繁简转换工具的导入
@@ -65,12 +61,12 @@ def main():
     #索引编号。
     indexAdress = 0
     #文字地址。
-    msg_bytes = []
+    msg_bytes = ""
     #最终的dosext.msg的数据。
-    part_bytes = []
-    partsim_bytes = []
-    partaggr_bytes = []
-    fail_bytes = []
+    part_bytes = ""
+    partsim_bytes = ""
+    partaggr_bytes = ""
+    fail_bytes = ""
     #临时脚本数据。
 
     dos_msg_started = 0
@@ -105,19 +101,19 @@ def main():
     print("Now loading data...")
 
     try:
-        with open(options.filepathd,'rU') as f:
+        with open(options.filepathd,'rt',encoding='utf-8') as f:
             messagedos=f.readlines()
     except:
         traceback.print_exc()
     #打开文字文件。
     try:
-        with open(options.filepathw,'rU') as f:
+        with open(options.filepathw,'rt',encoding='utf-8') as f:
             messagewin=f.readlines()
     except:
         traceback.print_exc()
     #打开文字文件。
     try:
-        with open(options.filepathe,'rU') as f:
+        with open(options.filepathe,'rt',encoding='utf-8') as f:
             messageext=f.readlines()
     except:
         traceback.print_exc()
@@ -145,13 +141,13 @@ def main():
 
     for textLine in messagedos:
         #读入一行。
-        if textLine.decode("utf-8").find("[BEGIN MESSAGE]") == 0:
+        if textLine.find("[BEGIN MESSAGE]") == 0:
             #新的段落开始。创建一个新的MessageData对象。
             dos_msg_started = 1
             
             is_msg_group = 1
             listdos[-1].begin = textLine
-        elif textLine.decode("utf-8").find("[END MESSAGE]") == 0:
+        elif textLine.find("[END MESSAGE]") == 0:
             #段落结束。
             is_msg_group = 0
 
@@ -198,12 +194,12 @@ def main():
 
     for textLine in messagewin:
         #读入一行。
-        if textLine.decode("utf-8").find("[BEGIN MESSAGE]") == 0:
+        if textLine.find("[BEGIN MESSAGE]") == 0:
             #新的段落开始。创建一个新的MessageData对象。
             
             is_msg_group = 1
             listwin[-1].begin = textLine
-        elif textLine.decode("utf-8").find("[END MESSAGE]") == 0:
+        elif textLine.find("[END MESSAGE]") == 0:
             #段落结束。
             is_msg_group = 0
 
@@ -245,12 +241,12 @@ def main():
 
     for textLine in messageext:
         #读入一行。
-        if textLine.decode("utf-8").find("[BEGIN MESSAGE]") == 0:
+        if textLine.find("[BEGIN MESSAGE]") == 0:
             ext_msg_started = 1
             
             is_msg_group = 1
             listext[-1].begin = textLine
-        elif textLine.decode("utf-8").find("[END MESSAGE]") == 0:
+        elif textLine.find("[END MESSAGE]") == 0:
             #段落结束。
             is_msg_group = 0
             listext[-1].end = textLine
@@ -267,6 +263,7 @@ def main():
                     listext[-1].comment += textLine
             else:
             #否则，就是WORD等部分的数据。在ext_pre_lines写入数据。
+                #pdb.set_trace()
                 ext_pre_lines += textLine
 
     print("Processing start!")
@@ -277,17 +274,17 @@ def main():
         isok = 0
 
         for currentwinobj in listwin:
-            if currentdosobj.message == currentwinobj.message:
+            if currentdosobj.message.rstrip() == currentwinobj.message.rstrip():
                 for currentextobj in listext:
-                    if currentwinobj.begin == currentextobj.begin:
+                    if currentwinobj.begin.rstrip() == currentextobj.begin.rstrip():
                         tempcounter += 1
                         isok = 1
                         currentdosobj.message = currentextobj.message
                         break
 
-            elif currentdosobj.messagetemp == currentwinobj.messagetemp:
+            elif currentdosobj.messagetemp.rstrip() == currentwinobj.messagetemp.rstrip():
                 for currentextobj in listext:
-                    if currentwinobj.begin == currentextobj.begin:
+                    if currentwinobj.begin.rstrip() == currentextobj.begin.rstrip():
                         tempcounter += 1
                         partcounter += 1
                         isok = 1
@@ -311,7 +308,7 @@ def main():
                 if  mratio>= maxratio:
                     maxratio = mratio
                     for currentextobj in listext:
-                        if currentwinobj.begin == currentextobj.begin:
+                        if currentwinobj.begin.rstrip() == currentextobj.begin.rstrip():
                             tempcounter += 1
                             partcounter += 1
                             isok = 1
@@ -320,14 +317,15 @@ def main():
                             partaggr_bytes += "mratio: " + str(mratio) + "\n"
                             partaggr_bytes += "maxratio: " + str(maxratio) + "\n"
                             partaggr_bytes += currentdosobj.begin + "\n"
-                            partaggr_bytes += currentdosobj.message + "\n"
+                            partaggr_bytes += currentdosobj.messagetemp + "\n"
                             partaggr_bytes += currentwinobj.begin + "\n"
-                            partaggr_bytes += currentwinobj.message + "\n"
+                            partaggr_bytes += currentwinobj.messagetemp + "\n"
                             partaggr_bytes += "\n\n"
 
                         
                             currentdosobj.message = currentextobj.message
                             break
+        
         if isok == 0:
             mratio = 0
             maxratio = 0.75
@@ -337,7 +335,7 @@ def main():
                 if  mratio>= maxratio:
                     #print "Success!"
                     for currentextobj in listext:
-                        if currentwinobj.begin == currentextobj.begin:
+                        if currentwinobj.begin.rstrip() == currentextobj.begin.rstrip():
                             tempcounter += 1
                             partcounter += 1
                             isok = 1
@@ -354,8 +352,9 @@ def main():
                         
                             currentdosobj.message = currentextobj.message
                             break
+        
         if isok ==0:
-            #print "Failed."
+            print(f"Failed to match. Block begin:{currentdosobj.begin.rstrip()};msg:{currentdosobj.message.rstrip()}")
             failcounter += 1
             fail_bytes += currentdosobj.begin + "\n"
             fail_bytes += currentdosobj.message + "\n\n"
@@ -375,18 +374,17 @@ def main():
         msg_bytes += currentdosobj.end
         msg_bytes += "\n\n"
 
-
     try:
 
-        with open("dosextOKTest.msg.txt","w") as f:
-            f.write(bytearray(msg_bytes))
+        with open("dosextOKTest.msg.txt","w",encoding='utf-8') as f:
+            f.write(msg_bytes)
     except:
         traceback.print_exc()
 
     try:
 
-        with open("part.txt","w") as f:
-            f.write(bytearray(partaggr_bytes))
+        with open("part.txt","w",encoding='utf-8') as f:
+            f.write(partaggr_bytes)
     except:
         traceback.print_exc()
 
@@ -399,8 +397,8 @@ def main():
 
     try:
 
-        with open("fail.txt","w") as f:
-            f.write(bytearray(fail_bytes))
+        with open("fail.txt","w",encoding='utf-8') as f:
+            f.write(fail_bytes)
     except:
         traceback.print_exc()
         
