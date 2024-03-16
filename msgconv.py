@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from __future__ import with_statement
+
 
 import argparse
 import os
@@ -96,13 +96,13 @@ def main():
 
     is_msg_group = 0    #是否正在处理文字组的标示。
     
-    print ""
-    print "SDLPal Message Converter v0.55"
-    print "Developed by SDLPal Team"
+    print("")
+    print("SDLPal Message Converter v0.55")
+    print("Developed by SDLPal Team")
 
-    print "CHT2CHS Convertion with code form nstools. You can get nstools on GitHub. "
-    print "This program is distributed under the terms of General Public License v2. \n"
-    print "Now loading data..."
+    print("CHT2CHS Convertion with code form nstools. You can get nstools on GitHub. ")
+    print("This program is distributed under the terms of General Public License v2. \n")
+    print("Now loading data...")
 
     try:
         with open(options.filepathd,'rU') as f:
@@ -140,7 +140,7 @@ def main():
     listext.append(MessageData())
     #建立第一个对象。
     
-    pattern = re.compile(u'[\u4e00-\u9fa5]')
+    pattern = re.compile('[\u4e00-\u9fa5]')
     c = Converter("zh-hans")
 
     for textLine in messagedos:
@@ -157,7 +157,7 @@ def main():
 
             listdos[-1].messagetemp = listdos[-1].message
 
-            listdos[-1].messagetemp = c.convert(unicode(listdos[-1].messagetemp))
+            listdos[-1].messagetemp = c.convert(str(listdos[-1].messagetemp))
             
             listdos[-1].messagetemp = listdos[-1].messagetemp.replace('∼', '～')
             listdos[-1].messagetemp = listdos[-1].messagetemp.replace('　', '')
@@ -210,7 +210,7 @@ def main():
             
             listwin[-1].messagetemp = listwin[-1].message
 
-            listwin[-1].messagetemp = c.convert(unicode(listwin[-1].messagetemp))
+            listwin[-1].messagetemp = c.convert(str(listwin[-1].messagetemp))
             
             listwin[-1].messagetemp = listwin[-1].messagetemp.replace('∼', '～')
             listwin[-1].messagetemp = listwin[-1].messagetemp.replace('　', '')
@@ -269,7 +269,7 @@ def main():
             #否则，就是WORD等部分的数据。在ext_pre_lines写入数据。
                 ext_pre_lines += textLine
 
-    print "Processing start!"
+    print("Processing start!")
 
     for currentdosobj in listdos:
         #遍历listdos中每一个对象，然后在listwin中找到对应对象。
@@ -361,7 +361,7 @@ def main():
             fail_bytes += currentdosobj.message + "\n\n"
 
             
-        print str(tempcounter) + " of " + str(len(listdos)) + "\r",
+        print(str(tempcounter) + " of " + str(len(listdos)) + "\r", end=' ')
 
 
     msg_bytes += ext_pre_lines
@@ -404,10 +404,10 @@ def main():
     except:
         traceback.print_exc()
         
-    print "OK! Convertion finished!"
+    print("OK! Convertion finished!")
     #print "Success: " + str(tempcounter) + " of " + str(len(listdos))
-    print "Partial: " + str(partcounter)
-    print "Failed: " + str(failcounter)
+    print("Partial: " + str(partcounter))
+    print("Failed: " + str(failcounter))
     
 if __name__ == '__main__':
     main()
