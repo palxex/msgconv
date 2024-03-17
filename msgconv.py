@@ -9,7 +9,7 @@ import struct
 import codecs
 import re
 
-import sys
+import pdb
 
 from langconv import *
 #繁简转换工具的导入
@@ -38,6 +38,8 @@ def ParseOptions():
                    help='Win file path')
   parser.add_argument('-e','--ext', dest='filepathe', 
                    help='External Message file path')
+  parser.add_argument('-c','--compact', dest='is_compact', action='store_true', default=False,
+                   help='Whether the orig dos file was compacted')
   
   args = parser.parse_args()
   #usage=parser.print_help()
@@ -136,18 +138,25 @@ def main():
     listext.append(MessageData())
     #建立第一个对象。
     
+    titleHashtable = {}
+
     pattern = re.compile('[\u4e00-\u9fa5]')
     c = Converter("zh-hans")
 
+    maxdosid = 0
     for textLine in messagedos:
         #读入一行。
         if textLine.find("[BEGIN MESSAGE]") == 0:
+            sid = int(textLine.rstrip().split("[BEGIN MESSAGE]")[1])
+            maxdosid = max(maxdosid, sid)
             #新的段落开始。创建一个新的MessageData对象。
             dos_msg_started = 1
             
             is_msg_group = 1
             listdos[-1].begin = textLine
         elif textLine.find("[END MESSAGE]") == 0:
+            eid = int(textLine.rstrip().split("[END MESSAGE]")[1])
+            maxdosid = max(maxdosid, eid)
             #段落结束。
             is_msg_group = 0
 
@@ -177,6 +186,19 @@ def main():
             #    listdos[-1].messagetemp = str("".join(m))
             listdos[-1].end = textLine
             
+            if options.is_compact:
+                titleLine = listdos[-1].messagetemp.rstrip()
+                if titleLine.endswith(":"):
+                    titleLine = titleLine[:-1] + "："
+                if titleLine.endswith("："):
+                    msg = MessageData()
+                    msg.message = titleLine
+                    msg.messagetemp = titleLine
+                    msg.comment = msg.comment
+                    titleHashtable[titleLine] = msg
+                    listdos[-1].message = ''
+                    continue
+
             listdos.append(MessageData())
             #新的段落要开始了，创建下一个对象。
         else:
@@ -192,14 +214,20 @@ def main():
             #否则，就是WORD等部分的数据。在dos_pre_lines写入数据。
                 dos_pre_lines += textLine
 
+    origTitleHashTable = {}
+    maxwinid = 0
     for textLine in messagewin:
         #读入一行。
         if textLine.find("[BEGIN MESSAGE]") == 0:
+            sid = int(textLine.rstrip().split("[BEGIN MESSAGE]")[1])
+            maxwinid = max(maxwinid, sid)
             #新的段落开始。创建一个新的MessageData对象。
             
             is_msg_group = 1
-            listwin[-1].begin = textLine
+            listwin[-1].begin = f"[BEGIN MESSAGE] {sid}\n"
         elif textLine.find("[END MESSAGE]") == 0:
+            eid = int(textLine.rstrip().split("[END MESSAGE]")[1])
+            maxwinid = max(maxwinid, eid)
             #段落结束。
             is_msg_group = 0
 
@@ -225,6 +253,17 @@ def main():
             listwin[-1].messagetemp = listwin[-1].messagetemp.replace('丶', '、')
             listwin[-1].messagetemp = listwin[-1].messagetemp.replace('一付', '一副')
 
+            if options.is_compact and (len(listwin[-1].messagetemp.split("：",1)[0].splitlines()) == 1 or len(listwin[-1].messagetemp.split(":",1)[0].splitlines()) == 1):
+                if listwin[-1].messagetemp.find(":") != -1:
+                    listwin[-1].messagetemp = listwin[-1].messagetemp.split(":",1)[0]+"："
+                if listwin[-1].messagetemp.find("：") != -1:
+                    origmsg = listwin[-1].messagetemp
+                    listwin[-1].messagetemp = origmsg.split("：",1)[1].lstrip()
+                    listwin[-1].begin = f"[BEGIN MESSAGE] {sid+1}\n"
+                    msg = MessageData()
+                    msg.message = origmsg.split("：",1)[0]+"："
+                    origTitleHashTable[msg.message] = msg
+
             #m = pattern.findall(unicode(listwin[-1].messagetemp))
             #if m:
             #    listwin[-1].messagetemp = str("".join(m))
@@ -239,17 +278,40 @@ def main():
             else:
                 listwin[-1].comment += textLine
 
+    maxwinid = maxwinid + 1
+    for _, msg in origTitleHashTable.items():
+        msg.begin = f"[BEGIN MESSAGE] {maxwinid}\n"
+        msg.end = f"[END MESSAGE] {maxwinid}\n"
+        msg.message += "\n"
+        maxwinid = maxwinid + 1
+        listwin.append(msg)
+
+    translatedTitleHashTable = {}
+    maxextid = 0
     for textLine in messageext:
         #读入一行。
         if textLine.find("[BEGIN MESSAGE]") == 0:
+            sid = int(textLine.rstrip().split("[BEGIN MESSAGE]")[1])
+            maxextid = max(maxextid, sid)
             ext_msg_started = 1
             
             is_msg_group = 1
-            listext[-1].begin = textLine
+            listext[-1].begin = f"[BEGIN MESSAGE] {sid}\n"
         elif textLine.find("[END MESSAGE]") == 0:
+            eid = int(textLine.rstrip().split("[END MESSAGE]")[1])
+            maxextid = max(maxextid, eid)
             #段落结束。
             is_msg_group = 0
             listext[-1].end = textLine
+
+            if options.is_compact and listext[-1].messagetemp.rstrip().find("\n") == -1 and listext[-1].message.find(":") != -1:
+                origmsg = listext[-1].message
+                listext[-1].message = origmsg.split(":",1)[1].lstrip()
+                listext[-1].begin = f"[BEGIN MESSAGE] {sid+1}\n"
+                msg = MessageData()
+                msg.message = origmsg.split(":",1)[0]+":"
+                translatedTitleHashTable[msg.message] = msg
+
             listext.append(MessageData())
             #新的段落要开始了。创建一个新的MessageData对象。
         else:
@@ -263,8 +325,19 @@ def main():
                     listext[-1].comment += textLine
             else:
             #否则，就是WORD等部分的数据。在ext_pre_lines写入数据。
-                #pdb.set_trace()
                 ext_pre_lines += textLine
+
+    maxextid = maxextid + 1
+    for _, msg in translatedTitleHashTable.items():
+        msg.begin = f"[BEGIN MESSAGE] {maxextid}\n"
+        msg.end = f"[END MESSAGE] {maxextid}\n"
+        msg.message += "\n"
+        maxextid = maxextid + 1
+        listext.append(msg)
+
+    #print(f"origTitleHashTable:{[{x:msg.message} for x,msg in origTitleHashTable.items()]}")
+    #print(f"translatedTitleHashTable:{[{x:msg.message} for x,msg in translatedTitleHashTable.items()]}")
+    #print(f"titleHashtable:{[{x:msg.messagetemp} for x,msg in titleHashtable.items()]}")
 
     print("Processing start!")
 
@@ -365,9 +438,15 @@ def main():
 
     msg_bytes += ext_pre_lines
     
+    maxdosid = maxdosid+1
+    for _, msg in titleHashtable.items():
+        msg.begin = f"[BEGIN MESSAGE] {maxdosid}\n"
+        msg.end = f"[END MESSAGE] {maxdosid}\n"
+        msg.message += "\n"
+        maxdosid = maxdosid+1
+        listdos.append(msg)
+
     for currentdosobj in listdos:
-        
-        
         msg_bytes += currentdosobj.comment
         msg_bytes += currentdosobj.begin
         msg_bytes += currentdosobj.message
